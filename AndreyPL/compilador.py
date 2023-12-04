@@ -4,12 +4,13 @@ from tkinter import ttk
 
 variable_pattern = re.compile(r'E3[a-z]')
 
-operators = {'+', '*', '/', '<', '>', '-'}
-separators = {',', ';', '=', '}', '{', '(', ')','&&'
-              }
+operators = {'+', '*', '/', '<', '>', '~'}
+separators = {',', ';', '=', '}', '{', '(', ')','&&'}
+conditional_keywords = {'3if3', '3then3', '3else3'}
 keyword_to_type = {'cruz': 'cruz', 'nube': 'nube', 'alfa': 'alfa'}
 integer_pattern = re.compile(r'3\d+3')
 decimal_pattern = re.compile(r'\d+\.\d+3')
+temp_variable_stack = [] 
 
 # Función para analizar el código fuente e identificar tokens
 def analyze_code():
@@ -64,6 +65,11 @@ def analyze_code():
                         if lexeme not in added_tokens:
                             result_tree.insert("", "end", values=(line_number, lexeme, 'OPERADOR' if lexeme in operators else 'SEPARADOR'))
                             added_tokens.add(lexeme)
+                    elif word in conditional_keywords:
+                        lexeme = word
+                        if lexeme not in added_tokens:
+                            result_tree.insert("", "end", values=(line_number, lexeme, 'CONDICIONAL'))
+                            added_tokens.add(lexeme)
                     elif word in added_tokens:
                         continue
                     else:
@@ -81,58 +87,66 @@ def analyze_code():
                             semantic_errors.append((line_number, word, error_description))
                             result_tree.insert("", "end", values=(line_number, word, 'ERROR', error_description))
                             
-def generate_triplo_table():
-    user_code = code_text.get("1.0", "end-1c")
+def generate_triplo():
+    user_code = '''
+    cruz E3a , E3b , 3Ec ;
+    nube E3d , E3e , E3f ;
+    alfa E3g , E3h , E3i ;
+    E3a = 383 ;
+    E3b = 353 + E3c ;
+    3if3 ( E3a > 100 && E3a < 200 ) {
+        E3a = E3a * 3103 ;
+        E3a = E3b - 3153 ;
+        E3h = "perro" ;
+    } 3else3 {
+        E3a = E3a + 313 ;
+        E3g = E3h + "hola" ;
+    }
+    E3d = E3e * 1234.334563 ;
+    E3c = E3a ;
+    '''
+
     lines = user_code.strip().split('\n')
 
-    triplo_window = tk.Toplevel(window)
-    triplo_window.title("Triplo en Postfijo")
+    dato_objeto = []
+    dato_fuente = []
+    operador = []
 
-    triplo_table = ttk.Treeview(triplo_window, columns=("Dato Objeto", "Dato Fuente", "Operador"))
-    triplo_table.heading("#1", text="Dato Objeto")
-    triplo_table.heading("#2", text="Dato Fuente")
-    triplo_table.heading("#3", text="Operador")
-
-    temp_variable_count = 1
-    temp_variable_stack = []
+    process = False
 
     for line in lines:
-        tokens = line.split()
-        if len(tokens) >= 3 and tokens[1] == "=":
-            result = tokens[0]
-            operator = tokens[2]
-            if len(tokens) == 3:  # Asignación simple
-                triplo_table.insert("", "end", values=(f"T{temp_variable_count}", result, operator))
-                temp_variable_count += 1
-            else:  # Operación con más de dos operandos
-                operands = tokens[3:]
-                for operand in operands:
-                    if operand not in '+-*/;':  # Si el token no es un operador o punto y coma
-                        temp_variable_stack.append(operand)
-                    else:  # Si el token es un operador
-                        if len(temp_variable_stack) >= 2:  # Verificar si hay suficientes elementos en la pila
-                            operand2 = temp_variable_stack.pop()
-                            operand1 = temp_variable_stack.pop()
-                            if operand1 == ';' or operand2 == ';':
-                                continue  # Evitar agregar el ";" a la tabla
-                            triplo_table.insert("", "end", values=(operand1, operand2, operand))
-                            temp_variable_stack.append(f"T{temp_variable_count}")
-                            temp_variable_count += 1
-                        else:
-                            print("Error: No hay suficientes elementos en la pila para la operación")
-                            # Podrías agregar un manejo de error más adecuado aquí si es necesario
-                if temp_variable_stack:  # Verificar si la pila no está vacía antes de extraer un elemento
-                    last_value = temp_variable_stack.pop()
-                    if last_value != ';':  # Evitar agregar el ";" a la tabla
-                        triplo_table.insert("", "end", values=(result, last_value, operator))
-                else:
-                    print("Error: Pila vacía al finalizar la operación")
+        if 'E3a = 383 ;' in line:
+            process = True
 
-    triplo_table.pack()
+        if process:
+            words = line.split()
+            if len(words) > 2:
+                parts = line.split('=')
+                if len(parts) > 1:
+                    left_part = parts[0].strip()
+                    right_part = parts[1].strip()
 
-# Resto del código...
+                    if '+' in right_part:
+                        operands = right_part.split('+')
+                        dato_objeto.append(f'T{len(dato_objeto) + 1}')
+                        dato_fuente.append(operands[1].strip())
+                        operador.append('+')
+                    elif '-' in right_part:
+                        operands = right_part.split('-')
+                        dato_objeto.append(f'T{len(dato_objeto) + 1}')
+                        dato_fuente.append(operands[1].strip())
+                        operador.append('-')
+                    # Add logic for other operators here
+                    else:
+                        dato_objeto.append(left_part.strip())
+                        dato_fuente.append(right_part.strip())
+                        operador.append('=')
 
+    print("Dato Objeto\tDato Fuente\tOperador")
+    for obj, fuente, oper in zip(dato_objeto, dato_fuente, operador):
+        print(f"{obj}\t\t{fuente}\t\t{oper}")
 
+generate_triplo()
 # Crear la ventana de la interfaz
 window = tk.Tk()
 window.title("Analizador Léxico")
@@ -152,10 +166,5 @@ result_tree.heading("#3", text="Tipo")
 result_tree.heading("#4", text="Descripción")
 result_tree.pack()
 
-generate_triplo_button = tk.Button(window, text="Generar Triplo", command=generate_triplo_table)
-generate_triplo_button.pack()
-
 window.mainloop()
 # Iniciar la interfaz
-
-
