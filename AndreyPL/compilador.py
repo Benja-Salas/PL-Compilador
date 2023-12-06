@@ -2,6 +2,10 @@ import re
 import tkinter as tk
 from tkinter import ttk
 
+# Crear la ventana de la interfaz
+window = tk.Tk()
+window.title("Analizador Léxico")
+
 variable_pattern = re.compile(r'E3[a-z]')
 
 operators = {'+', '*', '/', '<', '>', '~'}
@@ -87,69 +91,50 @@ def analyze_code():
                             semantic_errors.append((line_number, word, error_description))
                             result_tree.insert("", "end", values=(line_number, word, 'ERROR', error_description))
                             
-def generate_triplo():
-    user_code = '''
-    cruz E3a , E3b , 3Ec ;
-    nube E3d , E3e , E3f ;
-    alfa E3g , E3h , E3i ;
-    E3a = 383 ;
-    E3b = 353 + E3c ;
-    3if3 ( E3a > 100 && E3a < 200 ) {
-        E3a = E3a * 3103 ;
-        E3a = E3b - 3153 ;
-        E3h = "perro" ;
-    } 3else3 {
-        E3a = E3a + 313 ;
-        E3g = E3h + "hola" ;
-    }
-    E3d = E3e * 1234.334563 ;
-    E3c = E3a ;
-    '''
-
-    lines = user_code.strip().split('\n')
+def generate_triplo_postfijo():
+    user_code = code_text.get("1.0", tk.END).strip()
+    lines = user_code.split('\n')
 
     dato_objeto = []
     dato_fuente = []
     operador = []
 
-    process = False
+    ignore_elements = {',', ';', ')', '(', '{', '}', '3else3', '3if3', '3then3'}
+
+    first_line = True
 
     for line in lines:
-        if 'E3a = 383 ;' in line:
-            process = True
+        elements = line.split()  # Dividir la línea en elementos
 
-        if process:
-            words = line.split()
-            if len(words) > 2:
-                parts = line.split('=')
-                if len(parts) > 1:
-                    left_part = parts[0].strip()
-                    right_part = parts[1].strip()
+        # Comprobar si la línea no comienza con 'cruz', 'nube' o 'alfa'
+        if not any(word in elements for word in ['cruz', 'nube', 'alfa']):
+            # Comprobar si hay al menos 3 elementos en la línea (dato objeto, operador, dato fuente)
+            if len(elements) >= 3:
+                # Filtrar elementos no deseados
+                elements = [e for e in elements if e not in ignore_elements]
 
-                    if '+' in right_part:
-                        operands = right_part.split('+')
-                        dato_objeto.append(f'T{len(dato_objeto) + 1}')
-                        dato_fuente.append(operands[1].strip())
-                        operador.append('+')
-                    elif '-' in right_part:
-                        operands = right_part.split('-')
-                        dato_objeto.append(f'T{len(dato_objeto) + 1}')
-                        dato_fuente.append(operands[1].strip())
-                        operador.append('-')
-                    # Add logic for other operators here
-                    else:
-                        dato_objeto.append(left_part.strip())
-                        dato_fuente.append(right_part.strip())
-                        operador.append('=')
+                dato_objeto.append('T1')  # Agregar T1 como dato objeto al principio
 
+                # Verificar si hay suficientes elementos después de filtrar
+                if len(elements) >= 3:
+                    operador.append(elements[1])  # El operador será el segundo elemento
+                    dato_fuente.append(elements[2])  # El dato fuente será el tercer elemento
+
+            # Lógica para cambiar la posición de T1 después de la primera iteración
+            if not first_line:
+                temp = dato_objeto[0]  # Almacenar el valor de T1
+                dato_objeto[0] = dato_fuente[-1]  # Reemplazar el primer elemento con el último dato fuente
+                dato_fuente[-1] = temp  # Reemplazar el último dato fuente con el valor almacenado de T1
+
+        first_line = False  # Después de la primera iteración, actualizar el flag
+
+    # Imprimir la tabla del triplo en postfijo
     print("Dato Objeto\tDato Fuente\tOperador")
     for obj, fuente, oper in zip(dato_objeto, dato_fuente, operador):
         print(f"{obj}\t\t{fuente}\t\t{oper}")
-
-generate_triplo()
-# Crear la ventana de la interfaz
-window = tk.Tk()
-window.title("Analizador Léxico")
+# Resto del código de la interfaz gráfica...esto del código de la interfaz gráfica...tón para generar el triplo
+triplo_button = tk.Button(window, text="Generar Triplo", command=generate_triplo_postfijo)
+triplo_button.pack()
 
 # Panel de texto para ingresar el código fuente
 code_text = tk.Text(window, wrap="none", width=40, height=10)
